@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+
+import argparse
+try:
+    from proxmoxer import ProxmoxAPI
+except Exception as e:
+    print('%s\nFailed to import ProxmoxAPI' % e)
+
+
+parser = argparse.ArgumentParser(description='CLI-tool to list status of proxmox cluster and start/stop individual VMs')
+parser.add_argument('-l', '--list-vms', action='store_true', help='Lists the status of vms')
+parser.add_argument('-s', '--start', type=int, metavar='vmID', action='store', help='Start VM with vmID')
+parser.add_argument('-S', '--stop', type=int, metavar='vmID', action='store', help='Stop VM with vmID')
+args = parser.parse_args()
+
+try:
+    proxmox = ProxmoxAPI('ip:port', user='root@pam',password='supersecret', verify_ssl=False)
+except:
+    print('Error: can not connect to proxmox-cluster')
+    quit()
+
+
+class Resource:
+    def __init__(self, vmid, action, status = None):
+        self.vmid = vmid
+        self.action = action
+        self.status = status
+    
+    def listVmStatus():
+        node = []
+        status = []
+        vmid = []
+        name = []
+        for vm in proxmox.cluster.resources.get(type='vm'):
+            node.append(vm['node'])
+            status.append(vm['status'])
+            vmid.append(vm['vmid'])
+            name.append(vm['name'])
+        print('{:<10} {:<12} {:<8} {:<5}'.format('VmHost', 'Status', 'vmID', 'Name'))
+        print('------------------------------------------------------------')
+        for node, status, vmid, name in zip(node, status, vmid, name):
+            print('{:<10} | {:<10} | {:<5} | {:<5}'.format(node,status,vmid,name))
+
+    def toggleStatus(self):
+        try:
+            for vm in proxmox.cluster.resources.get(type='vm'):
+                if vm['vmid'] == self.vmid:
+                    self.vmid = vm['vmid']
+                    self.node = vm['node']
+                    self.status = proxmox.nodes(self.node).qemu(self.vmid).status(self.action).post()
+                    return self.status
+        except Exception as e:
+            print('%s' % e)
+
+
+def main():
+    if args.start:
+        s = Resource(args.start, "start")
+        s.toggleStatus()
+        # TODO implement wait-for-status
+        print('VM %s started...' % args.start)
+    elif args.list_vms:
+        s = Resource.listVmStatus() 
+    elif args.stop:
+        s = Resource(args.stop, "stop")
+        s.toggleStatus()
+        # TODO implement wait-for-status
+        print('VM %s stopped...' % args.stop)
+    else:
+        s = Resource.listVmStatus()
+
+if __name__ == "__main__":
+    main()
