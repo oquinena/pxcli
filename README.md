@@ -19,7 +19,7 @@ optional arguments:
   -S vmID, --stop vmID  Stop VM with vmID
 ```
 
-## Exempeloutput
+## Example output
 ```
 VmHost     Status       vmID     Name
 ------------------------------------------------------------
